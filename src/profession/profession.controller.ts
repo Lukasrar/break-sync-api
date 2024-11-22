@@ -8,13 +8,14 @@ import {
   Param,
 } from '@nestjs/common';
 import { ProfessionService } from './profession.service';
+import { Profession } from './ProfessionInterface';
 
 @Controller('profession')
 export class ProfessionController {
   constructor(private readonly professionService: ProfessionService) {}
 
   @Post()
-  async create(@Body() data: { name: string }) {
+  async create(@Body() data: Profession) {
     return this.professionService.create(data);
   }
 
@@ -24,10 +25,7 @@ export class ProfessionController {
   }
 
   @Put(':id')
-  async update(
-    @Param('id') id: string,
-    @Body() data: Partial<{ name: string }>,
-  ) {
+  async update(@Param('id') id: string, @Body() data: Partial<Profession>) {
     return this.professionService.update(id, data);
   }
 
