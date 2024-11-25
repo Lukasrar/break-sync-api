@@ -3,7 +3,7 @@ import { Document, Types } from 'mongoose';
 import { Profession } from 'src/profession/profession.schema';
 
 @Schema()
-export class News extends Document {
+export class DailyNews extends Document {
   @Prop({ required: true })
   title: string;
 
@@ -29,4 +29,4 @@ export class News extends Document {
   profession: Profession;
 }
 
-export const NewsSchema = SchemaFactory.createForClass(News);
+export const DailyNewsSchema = SchemaFactory.createForClass(DailyNews);

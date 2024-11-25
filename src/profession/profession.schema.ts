@@ -5,6 +5,9 @@ import { Document } from 'mongoose';
 export class Profession extends Document {
   @Prop({ required: true, unique: true })
   name: string;
+
+  @Prop({ required: true })
+  tags: string[];
 }
 
 export const ProfessionSchema = SchemaFactory.createForClass(Profession);
