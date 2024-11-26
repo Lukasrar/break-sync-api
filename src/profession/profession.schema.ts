@@ -8,6 +8,9 @@ export class Profession extends Document {
 
   @Prop({ required: true })
   tags: string[];
+
+  @Prop({ required: true, default: 0 })
+  lastFetchedPage: number;
 }
 
 export const ProfessionSchema = SchemaFactory.createForClass(Profession);
