@@ -6,6 +6,8 @@ import axios from 'axios';
 import { DailyNews } from './daily-news.schema';
 import { AllNews } from './all-news.schema';
 import { Profession } from 'src/profession/profession.schema';
+import { sleep } from 'src/helpers/sleep';
+import { getOneWeekAgo } from 'src/helpers/getOneWeekAgo';
 
 @Injectable()
 export class NewsService {
@@ -22,21 +24,27 @@ export class NewsService {
   }
 
   async fetchAndStorePosts(profession): Promise<any[]> {
-    const url = `https://dev.to/api/articles?page=1&per_page=5`;
+    const url = 'https://dev.to/search/feed_content';
+
+    const params = {
+      per_page: 4,
+      page: profession.lastFetchedPage,
+      sort_by: 'public_reactions_count',
+      sort_direction: 'desc',
+      approved: '',
+      class_name: 'Article',
+      published_at: getOneWeekAgo(),
+    };
 
     try {
-      this.logger.log('Fetching posts from Dev.to...');
-      this.logger.log(url);
+      const response = await axios.get(url, { params });
 
-      const response = await axios.get(url, { params: profession.tags });
-      const articles = response.data;
+      const articles = response.data.result;
 
-      const curatedArticles = articles.filter(
-        (article) => article.positive_reactions_count > 10,
+      await this.updatePageForProfession(
+        profession,
+        profession.lastFetchedPage + 1,
       );
-
-      console.log(curatedArticles);
-      this.logger.log('Posts successfully stored in the database.');
 
       return articles.map((article: any) => ({
         title: article.title,
@@ -70,7 +78,6 @@ export class NewsService {
     }
 
     const professions = await this.professionModel.find().exec();
-    this.logger.log(professions);
 
     for (const profession of professions) {
       const newsForProfession = await this.fetchAndStorePosts(profession);
@@ -81,11 +88,28 @@ export class NewsService {
           `Stored ${newsForProfession.length} articles for profession: ${profession.name}`,
         );
       }
+
+      await sleep(2000);
     }
+
     this.logger.log('Daily news cron job completed.');
+  }
+
+  async updatePageForProfession(profession, newPage: number): Promise<void> {
+    await this.professionModel.updateOne(
+      { name: profession.name },
+      { $set: { lastFetchedPage: newPage } },
+    );
   }
 
   async getNewsByProfession(profession: string): Promise<any[]> {
     return await this.dailyNewsModel.find({ profession }).exec();
+  }
+
+  async getArticleDetails(articleId: number): Promise<any[]> {
+    const response = await axios.get(
+      `https://dev.to/api/articles/${articleId}`,
+    );
+    return response.data;
   }
 }
