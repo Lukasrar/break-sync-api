@@ -6,6 +6,7 @@ import axios from 'axios';
 import { DailyNews } from './daily-news.schema';
 import { AllNews } from './all-news.schema';
 import { Profession } from 'src/profession/profession.schema';
+import { sleep } from 'src/helpers/sleep';
 
 @Injectable()
 export class NewsService {
@@ -70,7 +71,6 @@ export class NewsService {
     }
 
     const professions = await this.professionModel.find().exec();
-    this.logger.log(professions);
 
     for (const profession of professions) {
       const newsForProfession = await this.fetchAndStorePosts(profession);
@@ -81,11 +81,21 @@ export class NewsService {
           `Stored ${newsForProfession.length} articles for profession: ${profession.name}`,
         );
       }
+
+      await sleep(2000);
     }
+
     this.logger.log('Daily news cron job completed.');
   }
 
   async getNewsByProfession(profession: string): Promise<any[]> {
     return await this.dailyNewsModel.find({ profession }).exec();
+  }
+
+  async getArticleDetails(articleId: number): Promise<any[]> {
+    const response = await axios.get(
+      `https://dev.to/api/articles/${articleId}`,
+    );
+    return response.data;
   }
 }

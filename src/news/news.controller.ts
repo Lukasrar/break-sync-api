@@ -16,4 +16,9 @@ export class NewsController {
   ): Promise<any[]> {
     return await this.newsService.getNewsByProfession(profession);
   }
+
+  @Get('article-details/:id')
+  async getArticleDetails(@Param('id') articleId: number): Promise<any[]> {
+    return await this.newsService.getArticleDetails(articleId);
+  }
 }
