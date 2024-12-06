@@ -4,10 +4,10 @@ import { Model } from 'mongoose';
 import { Cron } from '@nestjs/schedule';
 import axios from 'axios';
 import { DailyNews } from './daily-news.schema';
-import { AllNews } from './all-news.schema';
 import { Profession } from 'src/profession/profession.schema';
 import { sleep } from 'src/helpers/sleep';
 import { getOneWeekAgo } from 'src/helpers/getOneWeekAgo';
+import * as cheerio from 'cheerio';
 
 @Injectable()
 export class NewsService {
@@ -15,7 +15,6 @@ export class NewsService {
 
   constructor(
     @InjectModel(DailyNews.name) private dailyNewsModel: Model<DailyNews>,
-    @InjectModel(AllNews.name) private allNewsModel: Model<AllNews>,
     @InjectModel(Profession.name) private professionModel: Model<Profession>,
   ) {}
 
@@ -69,14 +68,6 @@ export class NewsService {
   async handleCronJob(): Promise<void> {
     this.logger.log('Starting daily news cron job...');
 
-    const oldNews = await this.dailyNewsModel.find().exec();
-
-    if (oldNews.length > 0) {
-      await this.allNewsModel.insertMany(oldNews);
-      await this.dailyNewsModel.deleteMany({});
-      this.logger.log('Migrated daily news to allNews and cleared dailyNews.');
-    }
-
     const professions = await this.professionModel.find().exec();
 
     for (const profession of professions) {
@@ -111,5 +102,44 @@ export class NewsService {
       `https://dev.to/api/articles/${articleId}`,
     );
     return response.data;
+  }
+
+  async scrapeArticles(
+    keyword: string,
+  ): Promise<{ title: string; link: string; html: string }[]> {
+    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(keyword)}+articles`;
+    const { data } = await axios.get(searchUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    });
+
+    const $ = cheerio.load(data);
+    const results = [];
+
+    $('a').each((_, element) => {
+      const link = $(element).attr('href');
+      const title = $(element).text();
+
+      // Filtra apenas links úteis
+      if (link?.includes('http') && title) {
+        results.push({ title, link });
+      }
+    });
+
+    // Obtém HTML dos artigos (opcional: pode filtrar os top N links)
+    const articles = await Promise.all(
+      results.slice(0, 5).map(async (item) => {
+        try {
+          const { data: html } = await axios.get(item.link);
+          return { ...item, html };
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    const test = articles.filter(Boolean);
+    console.log(test);
+
+    return articles.filter(Boolean);
   }
 }

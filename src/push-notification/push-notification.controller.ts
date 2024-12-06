@@ -17,4 +17,9 @@ export class PushNotificationController {
   async listTokens() {
     return await this.pushNotificationService.list();
   }
+
+  @Post('send-notification-to-all')
+  async sendNotificationToAll() {
+    return await this.pushNotificationService.sendNotificationToAll();
+  }
 }

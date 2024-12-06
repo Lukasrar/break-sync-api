@@ -6,6 +6,8 @@ import {
   PushNotification,
   PushNotificationSchema,
 } from './push-notification.schema';
+import { AllNews, AllNewsSchema } from 'src/news/all-news.schema';
+import { DailyNews, DailyNewsSchema } from 'src/news/daily-news.schema';
 
 @Module({
   providers: [PushNotificationService],
@@ -13,6 +15,8 @@ import {
   imports: [
     MongooseModule.forFeature([
       { name: PushNotification.name, schema: PushNotificationSchema },
+      { name: AllNews.name, schema: AllNewsSchema },
+      { name: DailyNews.name, schema: DailyNewsSchema },
     ]),
   ],
 })

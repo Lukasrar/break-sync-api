@@ -5,6 +5,7 @@ import { NewsModule } from './news/news.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ProfessionModule } from './profession/profession.module';
 import { PushNotificationModule } from './push-notification/push-notification.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { PushNotificationModule } from './push-notification/push-notification.mo
     NewsModule,
     ProfessionModule,
     PushNotificationModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [AppController],
   providers: [AppService],
