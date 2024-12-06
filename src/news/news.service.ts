@@ -7,7 +7,6 @@ import { DailyNews } from './daily-news.schema';
 import { Profession } from 'src/profession/profession.schema';
 import { sleep } from 'src/helpers/sleep';
 import { getOneWeekAgo } from 'src/helpers/getOneWeekAgo';
-import * as cheerio from 'cheerio';
 
 @Injectable()
 export class NewsService {
@@ -102,44 +101,5 @@ export class NewsService {
       `https://dev.to/api/articles/${articleId}`,
     );
     return response.data;
-  }
-
-  async scrapeArticles(
-    keyword: string,
-  ): Promise<{ title: string; link: string; html: string }[]> {
-    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(keyword)}+articles`;
-    const { data } = await axios.get(searchUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-    });
-
-    const $ = cheerio.load(data);
-    const results = [];
-
-    $('a').each((_, element) => {
-      const link = $(element).attr('href');
-      const title = $(element).text();
-
-      // Filtra apenas links úteis
-      if (link?.includes('http') && title) {
-        results.push({ title, link });
-      }
-    });
-
-    // Obtém HTML dos artigos (opcional: pode filtrar os top N links)
-    const articles = await Promise.all(
-      results.slice(0, 5).map(async (item) => {
-        try {
-          const { data: html } = await axios.get(item.link);
-          return { ...item, html };
-        } catch {
-          return null;
-        }
-      }),
-    );
-
-    const test = articles.filter(Boolean);
-    console.log(test);
-
-    return articles.filter(Boolean);
   }
 }
