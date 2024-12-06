@@ -4,7 +4,6 @@ import { Model } from 'mongoose';
 import { Cron } from '@nestjs/schedule';
 import axios from 'axios';
 import { DailyNews } from './daily-news.schema';
-import { AllNews } from './all-news.schema';
 import { Profession } from 'src/profession/profession.schema';
 import { sleep } from 'src/helpers/sleep';
 import { getOneWeekAgo } from 'src/helpers/getOneWeekAgo';
@@ -15,7 +14,6 @@ export class NewsService {
 
   constructor(
     @InjectModel(DailyNews.name) private dailyNewsModel: Model<DailyNews>,
-    @InjectModel(AllNews.name) private allNewsModel: Model<AllNews>,
     @InjectModel(Profession.name) private professionModel: Model<Profession>,
   ) {}
 
@@ -68,14 +66,6 @@ export class NewsService {
   @Cron('0 6 * * *')
   async handleCronJob(): Promise<void> {
     this.logger.log('Starting daily news cron job...');
-
-    const oldNews = await this.dailyNewsModel.find().exec();
-
-    if (oldNews.length > 0) {
-      await this.allNewsModel.insertMany(oldNews);
-      await this.dailyNewsModel.deleteMany({});
-      this.logger.log('Migrated daily news to allNews and cleared dailyNews.');
-    }
 
     const professions = await this.professionModel.find().exec();
 
