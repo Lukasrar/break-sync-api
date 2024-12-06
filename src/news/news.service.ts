@@ -8,6 +8,7 @@ import { Profession } from 'src/profession/profession.schema';
 import { sleep } from 'src/helpers/sleep';
 import { getOneWeekAgo } from 'src/helpers/getOneWeekAgo';
 import * as cheerio from 'cheerio';
+import puppeteer from 'puppeteer';
 
 @Injectable()
 export class NewsService {
@@ -107,39 +108,30 @@ export class NewsService {
   async scrapeArticles(
     keyword: string,
   ): Promise<{ title: string; link: string; html: string }[]> {
-    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(keyword)}+articles`;
-    const { data } = await axios.get(searchUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+
+    await page.goto('https://dev.to/search?utf8=%E2%9C%93&q=frontend', {
+      waitUntil: 'networkidle2',
     });
 
-    const $ = cheerio.load(data);
-    const results = [];
+    const content = await page.content();
+
+    const $ = cheerio.load(content);
+    const articles: { slug: string; link: string }[] = [];
 
     $('a').each((_, element) => {
-      const link = $(element).attr('href');
-      const title = $(element).text();
+      const href = $(element).attr('href')?.trim();
+      const text = $(element).text().trim();
 
-      // Filtra apenas links úteis
-      if (link?.includes('http') && title) {
-        results.push({ title, link });
+      if (text.length > 20) {
+        articles.push({ link: 'https://dev.to/' + href, slug: text });
       }
     });
 
-    // Obtém HTML dos artigos (opcional: pode filtrar os top N links)
-    const articles = await Promise.all(
-      results.slice(0, 5).map(async (item) => {
-        try {
-          const { data: html } = await axios.get(item.link);
-          return { ...item, html };
-        } catch {
-          return null;
-        }
-      }),
-    );
+    console.log(articles);
 
-    const test = articles.filter(Boolean);
-    console.log(test);
-
-    return articles.filter(Boolean);
+    await browser.close();
+    return [];
   }
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post } from '@nestjs/common';
+import { Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { NewsService } from './news.service';
 
 @Controller('news')
@@ -20,5 +20,15 @@ export class NewsController {
   @Get('article-details/:id')
   async getArticleDetails(@Param('id') articleId: number): Promise<any[]> {
     return await this.newsService.getArticleDetails(articleId);
+  }
+
+  @Get('test')
+  async getArticles(@Query('profession') profession: string) {
+    if (!profession) {
+      return { error: 'Please provide a profession!' };
+    }
+
+    const articles = await this.newsService.scrapeArticles(profession);
+    return { profession, articles };
   }
 }
