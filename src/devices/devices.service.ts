@@ -1,31 +1,47 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { PushNotification } from './push-notification.schema';
-import { Model } from 'mongoose';
-import { StudyCase } from 'src/study-case/study-case.schema';
+import { Model, Types } from 'mongoose';
 import axios from 'axios';
 import { AllNews } from 'src/news/all-news.schema';
 import { DailyNews } from 'src/news/daily-news.schema';
 import { Cron } from '@nestjs/schedule';
+import { Device } from './devices.schema';
+import { RegisterDeviceDto } from './dto/RegisterDeviceDto';
 
 @Injectable()
-export class PushNotificationService {
-  private readonly logger = new Logger(PushNotificationService.name);
+export class DevicesService {
+  private readonly logger = new Logger(DevicesService.name);
 
   constructor(
-    @InjectModel(PushNotification.name)
-    private readonly pushNotificationModel: Model<PushNotification>,
+    @InjectModel(Device.name)
+    private readonly deviceModel: Model<Device>,
 
     @InjectModel(AllNews.name) private allNewsModel: Model<AllNews>,
     @InjectModel(DailyNews.name) private dailyNewsModel: Model<DailyNews>,
   ) {}
 
-  async create(data: { expoToken: string; studyCase: Partial<StudyCase> }) {
-    return await this.pushNotificationModel.create(data);
+  async createOrUpdate(data: RegisterDeviceDto) {
+    const existingDevice = await this.deviceModel.findOne({
+      expoToken: data.expoToken,
+    });
+
+    if (existingDevice) {
+      if (!existingDevice.studyCaseId.equals(data.studyCaseId)) {
+        existingDevice.studyCaseId = new Types.ObjectId(data.studyCaseId);
+
+        await existingDevice.save();
+        return { message: 'StudyCaseId updated successfully', statusCode: 200 };
+      }
+
+      return { message: 'Token already registered', statusCode: 200 };
+    }
+
+    await this.deviceModel.create(data);
+    return { message: 'Device registered successfully', statusCode: 201 };
   }
 
   async list() {
-    return await this.pushNotificationModel.find();
+    return await this.deviceModel.find();
   }
 
   @Cron('0 9,11,13,15,17 * * *', {
@@ -34,7 +50,7 @@ export class PushNotificationService {
   async sendNotificationToAll() {
     this.logger.log('Tarefa executada a cada 1 minuto');
 
-    const devices = await this.pushNotificationModel.find().exec();
+    const devices = await this.deviceModel.find().exec();
 
     const currentNewsToBeSended = await this.dailyNewsModel.findOneAndDelete();
 

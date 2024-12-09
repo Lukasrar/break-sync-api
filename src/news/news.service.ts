@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Cron } from '@nestjs/schedule';
 import { DailyNews } from './daily-news.schema';
 import * as cheerio from 'cheerio';
 import puppeteer from 'puppeteer';
 import { StudyCase } from 'src/study-case/study-case.schema';
-import { sleep } from 'src/helpers/sleep';
+import { Cron } from '@nestjs/schedule';
+import { Device } from 'src/devices/devices.schema';
 
 @Injectable()
 export class NewsService {
@@ -15,37 +15,54 @@ export class NewsService {
   constructor(
     @InjectModel(DailyNews.name) private dailyNewsModel: Model<DailyNews>,
     @InjectModel(StudyCase.name) private studyCaseModel: Model<StudyCase>,
+    @InjectModel(Device.name) private deviceModel: Model<Device>,
   ) {}
 
-  async testCron(): Promise<void> {
-    await this.handleCronJob();
+  async test(): Promise<void> {
+    await this.handleScrapeArticles();
   }
 
   @Cron('0 6 * * *')
-  async handleCronJob(): Promise<void> {
-    this.logger.log('Starting daily news cron job...');
+  async handleScrapeArticles(): Promise<void> {
+    const devices = await this.deviceModel.find().exec();
 
-    const studyCases = await this.studyCaseModel.find().exec();
+    const groupedDevices = devices.reduce(
+      (acc, device) => {
+        const studyCaseId = device.studyCaseId.toString();
 
-    for (const studyCase of studyCases) {
-      console.log(studyCase);
+        if (!acc[studyCaseId]) {
+          acc[studyCaseId] = [];
+        }
+
+        acc[studyCaseId].push(device);
+
+        return acc;
+      },
+      {} as Record<string, typeof devices>,
+    );
+
+    for (const studyCaseId in groupedDevices) {
+      const studyCaseDevices = groupedDevices[studyCaseId];
+
+      const studyCase = await this.studyCaseModel
+        .findOne({ _id: studyCaseId })
+        .exec();
+
+      if (!studyCase) continue;
+
       const articles = await this.scrapeArticles(studyCase);
-      console.log(articles);
+
+      if (articles.length === 0) return;
 
       const formattedArticles = articles.map((article) => ({
         title: article.title,
         link: article.link,
-        studyCase,
+        studyCase: studyCase,
+        devices: studyCaseDevices,
       }));
 
-      if (articles.length > 0) {
-        await this.dailyNewsModel.insertMany(formattedArticles);
-      }
-
-      await sleep(2000);
+      await this.dailyNewsModel.insertMany(formattedArticles);
     }
-
-    this.logger.log('Daily news cron job completed.');
   }
 
   async scrapeArticles(
@@ -114,12 +131,22 @@ export class NewsService {
     const articleElement = $('article').first();
 
     if (articleElement.length > 0) {
-      article.content = articleElement.html().trim(); // Captura todo o HTML dentro da tag <article>
+      article.content = articleElement.html().trim();
     }
 
     await browser.close();
 
-    // Retorna os dados do artigo
     return article;
+  }
+
+  async listArticlePerDivice(expoToken: string) {
+    const articles = await this.dailyNewsModel
+      .find({
+        devices: { $elemMatch: { expoToken } },
+      })
+      .select('-devices')
+      .exec();
+
+    return articles;
   }
 }

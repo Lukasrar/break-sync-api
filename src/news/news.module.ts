@@ -4,6 +4,7 @@ import { NewsController } from './news.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { DailyNews, DailyNewsSchema } from './daily-news.schema';
 import { StudyCase, StudyCaseSchema } from 'src/study-case/study-case.schema';
+import { Device, DeviceSchema } from 'src/devices/devices.schema';
 
 @Module({
   providers: [NewsService],
@@ -12,6 +13,7 @@ import { StudyCase, StudyCaseSchema } from 'src/study-case/study-case.schema';
     MongooseModule.forFeature([
       { name: DailyNews.name, schema: DailyNewsSchema },
       { name: StudyCase.name, schema: StudyCaseSchema },
+      { name: Device.name, schema: DeviceSchema },
     ]),
   ],
 })
