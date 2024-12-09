@@ -1,34 +1,19 @@
-import { Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { NewsService } from './news.service';
 
 @Controller('news')
 export class NewsController {
   constructor(private readonly newsService: NewsService) {}
 
-  @Post('test-news')
-  async test() {
-    return this.newsService.testCron();
-  }
-
-  @Get('get-by-profession/:profession')
-  async getNewsByProfession(
-    @Param('profession') profession: string,
-  ): Promise<any[]> {
-    return await this.newsService.getNewsByProfession(profession);
-  }
-
-  @Get('article-details/:id')
-  async getArticleDetails(@Param('id') articleId: number): Promise<any[]> {
-    return await this.newsService.getArticleDetails(articleId);
-  }
-
   @Get('test')
-  async getArticles(@Query('profession') profession: string) {
-    if (!profession) {
-      return { error: 'Please provide a profession!' };
-    }
+  async getArticles() {
+    const articles = await this.newsService.testCron();
+    return { articles };
+  }
 
-    const articles = await this.newsService.scrapeArticles(profession);
-    return { profession, articles };
+  @Post('article-data')
+  async ArticleData(@Body() payload: { link: string }) {
+    const data = await this.newsService.articleData(payload.link);
+    return data;
   }
 }

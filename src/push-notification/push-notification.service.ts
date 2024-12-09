@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { PushNotification } from './push-notification.schema';
 import { Model } from 'mongoose';
-import { Profession } from 'src/profession/profession.schema';
+import { StudyCase } from 'src/study-case/study-case.schema';
 import axios from 'axios';
 import { AllNews } from 'src/news/all-news.schema';
 import { DailyNews } from 'src/news/daily-news.schema';
@@ -20,12 +20,12 @@ export class PushNotificationService {
     @InjectModel(DailyNews.name) private dailyNewsModel: Model<DailyNews>,
   ) {}
 
-  async create(data: { expoToken: string; profession: Partial<Profession> }) {
+  async create(data: { expoToken: string; studyCase: Partial<StudyCase> }) {
     return await this.pushNotificationModel.create(data);
   }
 
   async list() {
-    return await this.pushNotificationModel.find().populate('profession');
+    return await this.pushNotificationModel.find();
   }
 
   @Cron('0 9,11,13,15,17 * * *', {
