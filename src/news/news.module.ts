@@ -5,6 +5,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { DailyNews, DailyNewsSchema } from './daily-news.schema';
 import { StudyCase, StudyCaseSchema } from 'src/study-case/study-case.schema';
 import { Device, DeviceSchema } from 'src/devices/devices.schema';
+import { AllNews, AllNewsSchema } from './all-news.schema';
 
 @Module({
   providers: [NewsService],
@@ -12,6 +13,7 @@ import { Device, DeviceSchema } from 'src/devices/devices.schema';
   imports: [
     MongooseModule.forFeature([
       { name: DailyNews.name, schema: DailyNewsSchema },
+      { name: AllNews.name, schema: AllNewsSchema },
       { name: StudyCase.name, schema: StudyCaseSchema },
       { name: Device.name, schema: DeviceSchema },
     ]),

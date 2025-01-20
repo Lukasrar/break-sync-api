@@ -1,4 +1,5 @@
 import { IsString, IsNotEmpty } from 'class-validator';
+import { Types } from 'mongoose';
 
 export class RegisterDeviceDto {
   @IsString()
@@ -7,5 +8,5 @@ export class RegisterDeviceDto {
 
   @IsString()
   @IsNotEmpty()
-  studyCaseId: string;
+  studyCaseId: Types.ObjectId;
 }

@@ -7,6 +7,7 @@ import puppeteer from 'puppeteer';
 import { StudyCase } from 'src/study-case/study-case.schema';
 import { Cron } from '@nestjs/schedule';
 import { Device } from 'src/devices/devices.schema';
+import { AllNews } from './all-news.schema';
 
 @Injectable()
 export class NewsService {
@@ -14,6 +15,7 @@ export class NewsService {
 
   constructor(
     @InjectModel(DailyNews.name) private dailyNewsModel: Model<DailyNews>,
+    @InjectModel(AllNews.name) private allNewsModel: Model<AllNews>,
     @InjectModel(StudyCase.name) private studyCaseModel: Model<StudyCase>,
     @InjectModel(Device.name) private deviceModel: Model<Device>,
   ) {}
@@ -25,6 +27,10 @@ export class NewsService {
   @Cron('0 6 * * *')
   async handleScrapeArticles(): Promise<void> {
     const devices = await this.deviceModel.find().exec();
+    const oldNews = await this.dailyNewsModel.find().exec();
+
+    await this.dailyNewsModel.deleteMany();
+    await this.allNewsModel.insertMany(oldNews);
 
     const groupedDevices = devices.reduce(
       (acc, device) => {
@@ -68,12 +74,14 @@ export class NewsService {
   async scrapeArticles(
     studyCase: StudyCase,
   ): Promise<{ title: string; link: string }[]> {
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({ headless: false });
     const page = await browser.newPage();
 
     await page.goto(studyCase.articlesUrl, {
-      waitUntil: 'networkidle2',
+      waitUntil: 'domcontentloaded', // ou 'networkidle0'
     });
+
+    await page.waitForSelector('a');
 
     const content = await page.content();
 

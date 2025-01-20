@@ -1,6 +1,6 @@
 import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { StudyCase } from 'src/study-case/study-case.schema';
+import { Device } from 'src/devices/devices.schema';
 
 @Schema()
 export class AllNews extends Document {
@@ -10,8 +10,8 @@ export class AllNews extends Document {
   @Prop({ required: true })
   link: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'StudyCase', required: true })
-  studyCase: StudyCase;
+  @Prop({ type: [Types.ObjectId], ref: 'Device', required: true })
+  devices: Device[];
 }
 
 export const AllNewsSchema = SchemaFactory.createForClass(AllNews);

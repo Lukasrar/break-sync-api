@@ -2,8 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import axios from 'axios';
-import { AllNews } from 'src/news/all-news.schema';
-import { DailyNews } from 'src/news/daily-news.schema';
 import { Cron } from '@nestjs/schedule';
 import { Device } from './devices.schema';
 import { RegisterDeviceDto } from './dto/RegisterDeviceDto';
@@ -15,9 +13,6 @@ export class DevicesService {
   constructor(
     @InjectModel(Device.name)
     private readonly deviceModel: Model<Device>,
-
-    @InjectModel(AllNews.name) private allNewsModel: Model<AllNews>,
-    @InjectModel(DailyNews.name) private dailyNewsModel: Model<DailyNews>,
   ) {}
 
   async createOrUpdate(data: RegisterDeviceDto) {
@@ -48,13 +43,7 @@ export class DevicesService {
     timeZone: 'America/Sao_Paulo',
   })
   async sendNotificationToAll() {
-    this.logger.log('Tarefa executada a cada 1 minuto');
-
     const devices = await this.deviceModel.find().exec();
-
-    const currentNewsToBeSended = await this.dailyNewsModel.findOneAndDelete();
-
-    if (!currentNewsToBeSended) return;
 
     const expoTokens = devices.map((device) => device.expoToken);
 
@@ -62,9 +51,8 @@ export class DevicesService {
 
     const message = {
       to: expoTokens,
-      title: currentNewsToBeSended.title,
-      body: 'Você recebeu um novo artigo!',
-      data: currentNewsToBeSended,
+      title: 'You have a new article to read',
+      body: 'Do a break sync',
     };
 
     try {
@@ -73,11 +61,6 @@ export class DevicesService {
           'Content-Type': 'application/json',
         },
       });
-
-      const itemToInsert = currentNewsToBeSended.toObject();
-      delete itemToInsert._id;
-
-      await this.allNewsModel.create(itemToInsert);
     } catch (error) {
       console.error('Erro ao enviar notificação', error);
     }
