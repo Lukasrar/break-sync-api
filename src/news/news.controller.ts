@@ -1,24 +1,25 @@
-import { Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { NewsService } from './news.service';
 
 @Controller('news')
 export class NewsController {
   constructor(private readonly newsService: NewsService) {}
 
-  @Post('test-news')
-  async test() {
-    return this.newsService.testCron();
+  @Get('test')
+  async TestCron() {
+    const data = await this.newsService.test();
+    return data;
   }
 
-  @Get('get-by-profession/:profession')
-  async getNewsByProfession(
-    @Param('profession') profession: string,
-  ): Promise<any[]> {
-    return await this.newsService.getNewsByProfession(profession);
+  @Post('article-data')
+  async ArticleData(@Body() payload: { link: string }) {
+    const data = await this.newsService.articleData(payload.link);
+    return data;
   }
 
-  @Get('article-details/:id')
-  async getArticleDetails(@Param('id') articleId: number): Promise<any[]> {
-    return await this.newsService.getArticleDetails(articleId);
+  @Post('list-articles-per-device')
+  async ListArticlePerDivice(@Body() payload: { expoToken: string }) {
+    const data = await this.newsService.listArticlePerDivice(payload.expoToken);
+    return data;
   }
 }

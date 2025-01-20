@@ -1,32 +1,17 @@
 import { Schema, Prop, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { Profession } from 'src/profession/profession.schema';
+import { Device } from 'src/devices/devices.schema';
 
 @Schema()
 export class DailyNews extends Document {
-  @Prop({ required: true })
+  @Prop({ required: true, unique: true })
   title: string;
 
-  @Prop()
-  validUntil: Date;
-
-  @Prop()
-  description: string;
-
-  @Prop()
-  readingTimeMinutes: number;
-
-  @Prop([String])
-  tagList: string[];
-
-  @Prop()
-  authorName: string;
-
   @Prop({ required: true })
-  id: number;
+  link: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'Profession', required: true })
-  profession: Profession;
+  @Prop({ type: [Types.ObjectId], ref: 'Device', required: true })
+  devices: Device[];
 }
 
 export const DailyNewsSchema = SchemaFactory.createForClass(DailyNews);

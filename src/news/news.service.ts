@@ -1,12 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Cron } from '@nestjs/schedule';
-import axios from 'axios';
 import { DailyNews } from './daily-news.schema';
-import { Profession } from 'src/profession/profession.schema';
-import { sleep } from 'src/helpers/sleep';
-import { getOneWeekAgo } from 'src/helpers/getOneWeekAgo';
+import * as cheerio from 'cheerio';
+import puppeteer from 'puppeteer';
+import { StudyCase } from 'src/study-case/study-case.schema';
+import { Cron } from '@nestjs/schedule';
+import { Device } from 'src/devices/devices.schema';
+import { AllNews } from './all-news.schema';
 
 @Injectable()
 export class NewsService {
@@ -14,92 +15,146 @@ export class NewsService {
 
   constructor(
     @InjectModel(DailyNews.name) private dailyNewsModel: Model<DailyNews>,
-    @InjectModel(Profession.name) private professionModel: Model<Profession>,
+    @InjectModel(AllNews.name) private allNewsModel: Model<AllNews>,
+    @InjectModel(StudyCase.name) private studyCaseModel: Model<StudyCase>,
+    @InjectModel(Device.name) private deviceModel: Model<Device>,
   ) {}
 
-  async testCron(): Promise<void> {
-    await this.handleCronJob();
-  }
-
-  async fetchAndStorePosts(profession): Promise<any[]> {
-    const url = 'https://dev.to/search/feed_content';
-
-    const params = {
-      per_page: 4,
-      page: profession.lastFetchedPage,
-      sort_by: 'public_reactions_count',
-      sort_direction: 'desc',
-      approved: '',
-      class_name: 'Article',
-      published_at: getOneWeekAgo(),
-    };
-
-    try {
-      const response = await axios.get(url, { params });
-
-      const articles = response.data.result;
-
-      await this.updatePageForProfession(
-        profession,
-        profession.lastFetchedPage + 1,
-      );
-
-      return articles.map((article: any) => ({
-        title: article.title,
-        validUntil: new Date(),
-        description: article.description || '',
-        readingTimeMinutes: article.reading_time_minutes,
-        tagList: article.tag_list || [],
-        authorName: article.user.name,
-        id: article.id,
-        profession: profession.name,
-      }));
-    } catch (error) {
-      this.logger.error(
-        'Failed to fetch or store posts from Dev.to',
-        error.message,
-      );
-      return [];
-    }
+  async test(): Promise<void> {
+    await this.handleScrapeArticles();
   }
 
   @Cron('0 6 * * *')
-  async handleCronJob(): Promise<void> {
-    this.logger.log('Starting daily news cron job...');
+  async handleScrapeArticles(): Promise<void> {
+    const devices = await this.deviceModel.find().exec();
+    const oldNews = await this.dailyNewsModel.find().exec();
 
-    const professions = await this.professionModel.find().exec();
+    await this.dailyNewsModel.deleteMany();
+    await this.allNewsModel.insertMany(oldNews);
 
-    for (const profession of professions) {
-      const newsForProfession = await this.fetchAndStorePosts(profession);
+    const groupedDevices = devices.reduce(
+      (acc, device) => {
+        const studyCaseId = device.studyCaseId.toString();
 
-      if (newsForProfession.length > 0) {
-        await this.dailyNewsModel.insertMany(newsForProfession);
-        this.logger.log(
-          `Stored ${newsForProfession.length} articles for profession: ${profession.name}`,
-        );
+        if (!acc[studyCaseId]) {
+          acc[studyCaseId] = [];
+        }
+
+        acc[studyCaseId].push(device);
+
+        return acc;
+      },
+      {} as Record<string, typeof devices>,
+    );
+
+    for (const studyCaseId in groupedDevices) {
+      const studyCaseDevices = groupedDevices[studyCaseId];
+
+      const studyCase = await this.studyCaseModel
+        .findOne({ _id: studyCaseId })
+        .exec();
+
+      if (!studyCase) continue;
+
+      const articles = await this.scrapeArticles(studyCase);
+
+      if (articles.length === 0) return;
+
+      const formattedArticles = articles.map((article) => ({
+        title: article.title,
+        link: article.link,
+        studyCase: studyCase,
+        devices: studyCaseDevices,
+      }));
+
+      await this.dailyNewsModel.insertMany(formattedArticles);
+    }
+  }
+
+  async scrapeArticles(
+    studyCase: StudyCase,
+  ): Promise<{ title: string; link: string }[]> {
+    const browser = await puppeteer.launch({ headless: false });
+    const page = await browser.newPage();
+
+    await page.goto(studyCase.articlesUrl, {
+      waitUntil: 'domcontentloaded', // ou 'networkidle0'
+    });
+
+    await page.waitForSelector('a');
+
+    const content = await page.content();
+
+    const $ = cheerio.load(content);
+    const articles: { title: string; link: string }[] = [];
+
+    $('a').each((_, element) => {
+      const href = $(element).attr('href')?.trim();
+      const text = $(element).text().trim();
+
+      const currentUrl = page.url();
+      const currentDomain = new URL(currentUrl).hostname;
+
+      if (text.length > 20 && href) {
+        let fullLink = href;
+
+        if (!href.startsWith('http')) {
+          if (href.startsWith('/')) {
+            fullLink = `https://${currentDomain}${href}`;
+          }
+        }
+
+        const linkDomain = new URL(fullLink).hostname;
+        if (linkDomain.includes(currentDomain)) {
+          articles.push({
+            title: text,
+            link: fullLink,
+          });
+        }
       }
+    });
 
-      await sleep(2000);
+    await browser.close();
+    return articles.slice(0, 4);
+  }
+
+  async articleData(link: string) {
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+
+    await page.goto(link, {
+      waitUntil: 'networkidle2',
+    });
+
+    const content = await page.content();
+
+    const $ = cheerio.load(content);
+
+    const article = {
+      title: '',
+      content: '',
+      link: link,
+    };
+
+    const articleElement = $('article').first();
+
+    if (articleElement.length > 0) {
+      article.content = articleElement.html().trim();
     }
 
-    this.logger.log('Daily news cron job completed.');
+    await browser.close();
+
+    return article;
   }
 
-  async updatePageForProfession(profession, newPage: number): Promise<void> {
-    await this.professionModel.updateOne(
-      { name: profession.name },
-      { $set: { lastFetchedPage: newPage } },
-    );
-  }
+  async listArticlePerDivice(expoToken: string) {
+    const articles = await this.dailyNewsModel
+      .find({
+        devices: { $elemMatch: { expoToken } },
+      })
+      .select('-devices')
+      .exec();
 
-  async getNewsByProfession(profession: string): Promise<any[]> {
-    return await this.dailyNewsModel.find({ profession }).exec();
-  }
-
-  async getArticleDetails(articleId: number): Promise<any[]> {
-    const response = await axios.get(
-      `https://dev.to/api/articles/${articleId}`,
-    );
-    return response.data;
+    return articles;
   }
 }
